@@ -1,0 +1,342 @@
+#pragma config(Sensor, dgtl1,  					ElevatorLimitSwitchUpper, sensorDigitalIn)
+#pragma config(Sensor, dgtl2,  					ElevatorLimitSwitchLower, sensorDigitalIn)
+#pragma config(Sensor, dgtl5,  					SonorDistanceY, 					sensorSONAR_inch)
+#pragma config(Sensor, dgtl7,  					ShaftEncoder,   					sensorQuadEncoder)
+#pragma config(Sensor, dgtl9,						LiftDetector,							sensorQuadEncoder)
+#pragma config(Sensor, dgtl11,  				SonorDistanceX, 					sensorSONAR_inch)
+#pragma config(Motor,  port1,           LeftMotorBack, 						tmotorVex393_MC29, openLoop, reversed)
+#pragma config(Motor,  port2,           LeftMotorFront, 					tmotorVex393_MC29, openLoop, reversed)
+#pragma config(Motor,  port3,           LiftMotor1,    						tmotorVex393_MC29, openLoop, reversed, encoderPort, None)
+#pragma config(Motor,  port4,           LiftMotor2,    						tmotorVex393_MC29, openLoop)
+#pragma config(Motor,  port5,           LiftMotor3,    						tmotorVex393_MC29, openLoop, reversed)
+#pragma config(Motor,  port6,           LiftMotor4,    						tmotorVex393_MC29, openLoop, reversed)
+#pragma config(Motor,  port8,           ControlBoxMotor,					tmotorVex393_MC29, openLoop)
+#pragma config(Motor,  port9,           RightMotorFront, 					tmotorVex393_MC29, openLoop)
+#pragma config(Motor,  port10,          RightMotorBack, 					tmotorVex393_MC29, openLoop, reversed)
+
+// Initializing Constants
+const static float THRESHOLD = 20; // CHANGE THIS BACK TO 1
+const static int MAXDRIVESPEED = 127;
+const static float XDISTANCEFROMCENTER = 0;
+const static float YDISTANCEFROMCENTER = 0;
+const static int NUMBEROFTOWERS = 2;
+const static float LIFTGEARRATIO = (1 / 5);
+const static float CONTROLBOXGEARRATIO = 1 / 5.5;
+// Initializing game piece demensions
+		// Add from Apendix B. Later
+// Initializing Global Varialbles
+int RotateMotorSet = 0; // Global variables for passing simulated axis to task motorSet
+int StrafeXMotorSet = 0; // Simulated X axis for motor set task
+int StrafeYMotorSet = 0; // Simulated Y axis for motor set task
+int LiftMotorSet = 0; // Lift Motor control variable
+float LocationX = 0; // Location variables for trigonometric modification
+float LocationY = 0;
+float BotAngle = 0;
+bool PauseX = true;
+bool PauseY = true;
+int taskIndex = 1;
+bool debugAutonomous = true;
+bool ErrorChecking = false;
+bool trigModifications = false;
+float LiftLocation = 0;
+int loopIndex;
+
+void strafeX(float expectedLocation, int index, bool WaitOnY) {
+	/*
+	Method to control the motor output for left and right strafing, values are in inches by default
+	expectedLocation represents the equilibrium point of the method, the point which the bot is striving for
+	index represents the taskIndex value which the method is suppose to execute on as per the indexing loop structure
+	WaitOnY represents indicating that the method should wait to increase the taskIndex  until the PauseY variable becomes true
+	PauseX indicates that the method is still executing, so that the sister function strafeY will not increase the taskIndex value
+	strafeX has higher motor speeds per interval due to the high amount of friction whilst strafing left and right, the extra power is needed
+	*/
+	if(index == taskIndex) {
+		if(expectedLocation < LocationX - THRESHOLD - 100) {
+			StrafeXMotorSet = -127;
+			PauseX = true;
+		} else if (expectedLocation < LocationX - THRESHOLD - 80 && expectedLocation >= LocationX - THRESHOLD - 100) {
+			StrafeXMotorSet = -110;
+			PauseX = true;
+		} else if (expectedLocation < LocationX - THRESHOLD - 50 && expectedLocation >= LocationX - THRESHOLD - 80) {
+			StrafeXMotorSet = -100;
+			PauseX = true;
+		} else if (expectedLocation < LocationX - THRESHOLD  && expectedLocation >= LocationX - THRESHOLD - 50) {
+			StrafeXMotorSet = -80;
+			PauseX = true;
+		} else if (expectedLocation > LocationX + THRESHOLD + 100) {
+			StrafeXMotorSet = 127;
+			PauseX = true;
+		} else if (expectedLocation > LocationX + THRESHOLD + 80 && expectedLocation <= LocationX + THRESHOLD + 100) {
+			StrafeXMotorSet = 110;
+			PauseX = true;
+		} else if (expectedLocation > LocationX + THRESHOLD + 50  && expectedLocation <= LocationX + THRESHOLD + 80) {
+			StrafeXMotorSet = 100;
+			PauseX = true;
+		} else if (expectedLocation > LocationX + THRESHOLD && expectedLocation <= LocationX + THRESHOLD + 50) {
+			StrafeXMotorSet = 80;
+			PauseX = true;
+		} else if (expectedLocation > LocationX - THRESHOLD && expectedLocation < LocationX + THRESHOLD) {
+			PauseX = false;
+			StrafeXMotorSet = 0;
+			if (WaitOnY == true && PauseY == false) {
+				taskIndex++;
+			} else if (WaitOnY == false) {
+				taskIndex++;
+			}
+		}
+	}
+}
+
+void strafeY(float expectedLocation, int index, bool WaitOnX) {
+	/*
+	Method to control the motor output for forwards and backwards strafing
+	expectedLocation represents the equilibrium point of the method, the point which the bot is striving for
+	WaitOnX represents indicating that the method should wait to increase the taskIndex  until the PauseX variable becomes true
+	PauseY indicates that the method is still executing, so that the sister function strafeX will not increase the taskIndex value
+	*/
+	if(index == taskIndex) {
+		if(expectedLocation < LocationY - THRESHOLD - 100) {
+			StrafeYMotorSet = -127;
+			PauseY = true;
+		} else if (expectedLocation < LocationY - THRESHOLD - 80 && expectedLocation >= LocationY - THRESHOLD - 100) {
+			StrafeYMotorSet = -90;
+			PauseY = true;
+		} else if (expectedLocation < LocationY - THRESHOLD - 50 && expectedLocation >= LocationY - THRESHOLD - 80) {
+			StrafeYMotorSet = -60;
+			PauseY = true;
+		} else if (expectedLocation < LocationY - THRESHOLD  && expectedLocation >= LocationY - THRESHOLD - 50) {
+			StrafeYMotorSet = -50;
+			PauseY = true;
+		} else if (expectedLocation > LocationY + THRESHOLD + 100) {
+			StrafeYMotorSet = 127;
+			PauseY = true;
+		} else if (expectedLocation > LocationY + THRESHOLD + 80 && expectedLocation <= LocationY + THRESHOLD + 100) {
+			StrafeYMotorSet = 90;
+			PauseY = true;
+		} else if (expectedLocation > LocationY + THRESHOLD + 50  && expectedLocation <= LocationY + THRESHOLD + 80) {
+			StrafeYMotorSet = 60;
+			PauseY = true;
+		} else if (expectedLocation > LocationY + THRESHOLD && expectedLocation <= LocationY + THRESHOLD + 50) {
+			StrafeYMotorSet = 50;
+			PauseY = true;
+		} else if (expectedLocation > LocationY - THRESHOLD && expectedLocation <= LocationY + THRESHOLD) {
+			PauseY = false;
+			StrafeYMotorSet = 0;
+			if (WaitOnX == true && PauseX == false) {
+				taskIndex++;
+			} else if (WaitOnX == false) {
+				taskIndex++;
+			}
+		}
+	}
+}
+
+void rotate(int expectedDegrees, int index) {
+	/*
+	Method to cause the bot to do pin point turns on the central point, values are in degrees by default
+	expectedDegrees is the equilbrium point that the method will strive for
+	*/
+	if (index == taskIndex) {
+		if(expectedDegrees < BotAngle - THRESHOLD - 180) {
+			RotateMotorSet = -100;
+		} else if (expectedDegrees < BotAngle - THRESHOLD - 120) {
+			RotateMotorSet = -60;
+		} else if (expectedDegrees < BotAngle - THRESHOLD - 80) {
+			RotateMotorSet = -40;
+		} else if (expectedDegrees > BotAngle + THRESHOLD + 120) {
+			RotateMotorSet = 100;
+		} else if (expectedDegrees > BotAngle + THRESHOLD + 120) {
+			RotateMotorSet = 60;
+		} else if (expectedDegrees > BotAngle + THRESHOLD + 80) {
+			RotateMotorSet = 40;
+		} else if (expectedDegrees > BotAngle - THRESHOLD && expectedDegrees < BotAngle + THRESHOLD) {
+			RotateMotorSet = 0;
+			taskIndex++;
+		}
+	}
+}
+
+void lift(int expectedHeight, int index) {
+	if (index == taskIndex) {
+		LiftLocation = (SensorValue[LiftDetector] - LIFTINITIAL) / 360 * (1 / 5) * 2.481 * PI;
+		if (expectedHeight < SensorValue[LiftMotor1] - THRESHOLD) {
+			LiftMotorSet = MAXDRIVESPEED;
+		} else if (expectedHeight > SensorValue[LiftMotor1] + THRESHOLD) {
+			LiftMotorSet = -MAXDRIVESPEED;
+		} else if ((expectedHeight < SensorValue[LiftMotor1] + THRESHOLD && expectedHeight > SensorValue[LiftMotor1] - THRESHOLD) || expectedHeight == SensorValue[LiftMotor1]) {
+			LiftMotorSet = 0;
+			taskIndex++;
+		}
+	}
+}
+
+void jerk(int index, bool isForward) {
+	/*
+	The method jerk is designed for the instances in which the bot is directly in front of the wall and needs to shift either forward or backwards
+	without the use of the strafeY method
+	Only designed to move enough out so that the rotate method can execute without hitting the wall
+	*/
+	if (index == taskIndex) {
+		if (isForward) {
+			StrafeYMotorSet = 127;
+		} else if (!isForward) {
+			StrafeYMotorSet = -127;
+		}
+		RotateMotorSet = 0;
+		StrafeXMotorSet = 0;
+		motor[RightMotorFront] = StrafeYMotorSet - RotateMotorSet - StrafeXMotorSet;
+		motor[RightMotorBack] = StrafeYMotorSet - RotateMotorSet + StrafeXMotorSet;
+		motor[LeftMotorFront] = StrafeYMotorSet + RotateMotorSet + StrafeXMotorSet;
+		motor[LeftMotorBack] = StrafeYMotorSet + RotateMotorSet - StrafeXMotorSet;
+		wait1Msec(500);
+		motor[RightMotorFront] = 0;
+		motor[RightMotorBack] = 0;
+		motor[LeftMotorFront] = 0;
+		motor[LeftMotorBack] = 0;
+	}
+}
+
+void gyroscopeSet(float CONTROLBOXINITIAL) {
+	/*
+	The method gyroscopeSet is designed to keep the control box at a set angle in reference to the field so that the sonars return an accurate amount
+	GyroscopeOut is just the modified input, subtracting the inital amount and converting to degrees rather than tenths of degrees
+	*/
+	float GyroscopeOut = (SensorValue[in1] - CONTROLBOXINITIAL) / 10;
+	if (GyroscopeOut >= 127) {
+		motor[ControlBoxMotor] = 127;
+	} else if (GyroscopeOut > 0 && GyroscopeOut < 1270) {
+		motor[ControlBoxMotor] = GyroscopeOut;
+	}	else if (GyroscopeOut <= -127) {
+		motor[ControlBoxMotor] = -127;
+	} else if (GyroscopeOut < 0 && GyroscopeOut > -1270) {
+		motor[ControlBoxMotor] = GyroscopeOut;
+	} else {
+		motor[ControlBoxMotor] = 0;
+	}
+}
+
+void motorSet(int StrafeYMotorSet, int RotateMotorSet, int StrafeXMotorSet) {
+	/*
+	The motorSet function is designed to commit the virtual axes to the motor via the typical mecanum wheel algorithm
+	*/
+	motor[RightMotorFront] = StrafeYMotorSet - RotateMotorSet - StrafeXMotorSet;
+	motor[RightMotorBack] = StrafeYMotorSet - RotateMotorSet + StrafeXMotorSet;
+	motor[LeftMotorFront] = StrafeYMotorSet + RotateMotorSet + StrafeXMotorSet;
+	motor[LeftMotorBack] = StrafeYMotorSet + RotateMotorSet - StrafeXMotorSet;
+}
+
+void liftSet(int LiftMotorSet) {
+	/*
+	The liftSet method is the commiting of the LiftMotorSet variable to the lift motors
+	*/
+	motor[LiftMotor1] = LiftMotorSet;
+	motor[LiftMotor2] = LiftMotorSet;
+	motor[LiftMotor3] = LiftMotorSet;
+	motor[LiftMotor4] = LiftMotorSet;
+}
+
+void debugAutonomous() {
+	taskIndex = -1;
+	StrafeXMotorSet = vexRT[Ch1];
+	StrafeYMotorSet = vexRT[Ch2];
+	RotateMotorSet = vexRT[Ch4];
+	if (vexRT[Btn6U] == true) {
+		LiftMotorSet = -127;
+		} else if (vexRT[Btn6D] == true) {
+		LiftMotorSet = 127;
+		} else {
+		LiftMotorSet = 0;
+		}
+	}
+}
+
+task main() {
+	SensorType[in1] = sensorNone;
+	SensorType[in1] = sensorGyro;
+	wait1Msec(2000);
+	int ArrayCount = 0;
+	float LocationXArray[50];
+	float LocationYArray[50];
+	const float ROTATEINITIAL = SensorValue[ShaftEncoder] * CONTROLBOXGEARRATIO;
+	const float CONTROLBOXINITIAL = SensorValue[in1];
+	const float LIFTINITIAL = SensorValue[LiftDetector];
+	for(loopIndex = 0; ;loopIndex++) { // Loop Index Variable is used for multivariable array for later error checking
+		motorSet(StrafeYMotorSet, RotateMotorSet, StrafeXMotorSet);
+		// Lift Motor control
+		liftSet(LiftMotorSet);
+		gyroscopeSet(CONTROLBOXINITIAL);
+		// Trigonometry to move distance to center of bot, rather than centered around the Control Box
+		const float RADIUS = sqrt(pow(XDISTANCEFROMCENTER,2) + pow(YDISTANCEFROMCENTER, 2)); // Pythagorean Theorm to return the hypotenus of the control box distance from the x axis and y axis
+		BotAngle = ((float)(SensorValue[ShaftEncoder] * CONTROLBOXGEARRATIO) - ROTATEINITIAL); // Takes the degrees that the bot has rotated and shifts the modified amount
+		if(BotAngle > 360) {  // Spin detection to correct trigonometric calculations
+			BotAngle = BotAngle - 360;
+		} else if(BotAngle < 0) {
+			BotAngle = BotAngle + 360;
+		}
+		LocationX = SensorValue(SonorDistanceX);
+		LocationY = SensorValue(SonorDistanceY);
+		// Calculating modified distances
+		if (trigModifications) {
+			if (0 < BotAngle < 90 || 180 < BotAngle < 270) {
+				LocationX = SensorValue[SonorDistanceX] + cos(BotAngle) * RADIUS;
+				LocationY = SensorValue[SonorDistanceY] + sin(BotAngle) * RADIUS;
+			} else if (90 < BotAngle < 180 || 270 < BotAngle < 360) {
+				LocationX = SensorValue[SonorDistanceX] + sin(BotAngle) * RADIUS;
+				LocationY = SensorValue[SonorDistanceY] + cos(BotAngle) * RADIUS;
+			} else if (BotAngle == 0) { // Trignometric special exceptions
+				LocationX = SensorValue[SonorDistanceX] - RADIUS;
+				LocationY = SensorValue[SonorDistanceY];
+			} else if (BotAngle == 90) {
+				LocationX = SensorValue[SonorDistanceX];
+				LocationY = SensorValue[SonorDistanceY] - RADIUS;
+			} else if (BotAngle == 180) {
+				LocationX = SensorValue[SonorDistanceX] + RADIUS;
+				LocationY = SensorValue[SonorDistanceY];
+			} else if (BotAngle == 270) {
+				LocationX = SensorValue[SonorDistanceX];
+				LocationY = SensorValue[SonorDistanceY] + RADIUS;
+			}
+		}
+		// Debug Autonomous
+		if (debugAutonomous) {
+			taskIndex = -1;
+			StrafeXMotorSet = vexRT[Ch1];
+			StrafeYMotorSet = vexRT[Ch2];
+			RotateMotorSet = vexRT[Ch4];
+			if (vexRT[Btn6U] == true) {
+				LiftMotorSet = -127;
+			} else if (vexRT[Btn6D] == true) {
+				LiftMotorSet = 127;
+			} else {
+				LiftMotorSet = 0;
+			}
+		}
+		// Error Checking Array
+		if (ErrorChecking) {
+			LocationXArray[ArrayCount] = LocationX;
+			LocationYArray[ArrayCount] = LocationY;
+			if (ArrayCount != 1) {
+				if (LocationXArray[ArrayCount - 1] + THRESHOLD > LocationXArray[ArrayCount] && LocationXArray[ArrayCount - 1] < LocationXArray[ArrayCount]) { // If value is increasing and previous value is lower
+					LocationXArray[ArrayCount] = LocationXArray[ArrayCount - 1]; // Throw out
+					LocationX = LocationXArray[ArrayCount - 1];
+				} else if (LocationXArray[ArrayCount - 1] - THRESHOLD < LocationXArray[ArrayCount] && LocationXArray[ArrayCount - 1] > LocationXArray[ArrayCount]) {
+					LocationXArray[ArrayCount] = LocationXArray[ArrayCount - 1]; // Throw out
+					LocationX = LocationXArray[ArrayCount - 1];
+				}
+				if (LocationYArray[ArrayCount - 1] - THRESHOLD < LocationYArray[ArrayCount] && LocationYArray[ArrayCount - 1] > LocationYArray[ArrayCount]) { // If value is decreasing and previous value is higher
+					LocationY = LocationYArray[ArrayCount - 1];
+				} else if (LocationYArray[ArrayCount - 1] - THRESHOLD < LocationYArray[ArrayCount] && LocationYArray[ArrayCount - 1] > LocationYArray[ArrayCount]) {
+					LocationYArray[ArrayCount] = LocationYArray[ArrayCount - 1]; // Throw out
+					LocationY = LocationYArray[ArrayCount - 1];
+				}
+			}
+			if (ArrayCount == 1) {
+				if (LocationXArray[49] + THRESHOLD > LocationXArray[ArrayCount] && LocationXArray[49] < LocationXArray[ArrayCount])
+					LocationX = LocationXArray[ArrayCount - 1];
+				if (LocationYArray[49] + THRESHOLD > LocationYArray[ArrayCount] && LocationYArray[49] < LocationYArray[ArrayCount])
+					LocationY = LocationYArray[ArrayCount - 1];
+			}
+		}
+		// Start instructions
+	}
+}
