@@ -37,7 +37,7 @@ bool PauseY = true;
 int taskIndex = 1;
 bool debugAutonomous = true;
 bool ErrorChecking = false;
-bool trigModifications = false;
+bool trigModificationsToggle = false;
 float LiftLocation = 0;
 int loopIndex;
 
@@ -236,17 +236,54 @@ void liftSet(int LiftMotorSet) {
 }
 
 void debugAutonomous() {
-	taskIndex = -1;
-	StrafeXMotorSet = vexRT[Ch1];
-	StrafeYMotorSet = vexRT[Ch2];
-	RotateMotorSet = vexRT[Ch4];
-	if (vexRT[Btn6U] == true) {
-		LiftMotorSet = -127;
-		} else if (vexRT[Btn6D] == true) {
-		LiftMotorSet = 127;
-		} else {
-		LiftMotorSet = 0;
+	/*
+	Method to trigger debug autonomous, which functions like driver control with control box funcitonality
+	ENSURE THAT DEBUG AUTONOMOUS IS OFF BEFORE COMPETITION /EVERY TIME/
+	*/
+	if (debugAutonomous) {
+		taskIndex = -1;
+		StrafeXMotorSet = vexRT[Ch1];
+		StrafeYMotorSet = vexRT[Ch2];
+		RotateMotorSet = vexRT[Ch4];
+		if (vexRT[Btn6U] == true) {
+			LiftMotorSet = -127;
+			} else if (vexRT[Btn6D] == true) {
+			LiftMotorSet = 127;
+			} else {
+			LiftMotorSet = 0;
+			}
 		}
+	}
+}
+
+void trigModifications() {
+	/*
+	Method to modify spnar values to accomodate the control box not being in the center
+	If trigModificationToggle is set to false, the Location variables become equals to the raw input from the sonars
+	*/
+	if (trigModificationsToggle) {
+		if (0 < BotAngle < 90 || 180 < BotAngle < 270) {
+			LocationX = SensorValue[SonorDistanceX] + cos(BotAngle) * RADIUS;
+			LocationY = SensorValue[SonorDistanceY] + sin(BotAngle) * RADIUS;
+		} else if (90 < BotAngle < 180 || 270 < BotAngle < 360) {
+			LocationX = SensorValue[SonorDistanceX] + sin(BotAngle) * RADIUS;
+			LocationY = SensorValue[SonorDistanceY] + cos(BotAngle) * RADIUS;
+		} else if (BotAngle == 0) { // Trignometric special exceptions
+			LocationX = SensorValue[SonorDistanceX] - RADIUS;
+			LocationY = SensorValue[SonorDistanceY];
+		} else if (BotAngle == 90) {
+			LocationX = SensorValue[SonorDistanceX];
+			LocationY = SensorValue[SonorDistanceY] - RADIUS;
+		} else if (BotAngle == 180) {
+			LocationX = SensorValue[SonorDistanceX] + RADIUS;
+			LocationY = SensorValue[SonorDistanceY];
+		} else if (BotAngle == 270) {
+			LocationX = SensorValue[SonorDistanceX];
+			LocationY = SensorValue[SonorDistanceY] + RADIUS;
+		}
+	} else if (!trigModificationsToggle) {
+		LocationX = SensorValue(SonorDistanceX);
+		LocationY = SensorValue(SonorDistanceY);
 	}
 }
 
@@ -273,44 +310,8 @@ task main() {
 		} else if(BotAngle < 0) {
 			BotAngle = BotAngle + 360;
 		}
-		LocationX = SensorValue(SonorDistanceX);
-		LocationY = SensorValue(SonorDistanceY);
-		// Calculating modified distances
-		if (trigModifications) {
-			if (0 < BotAngle < 90 || 180 < BotAngle < 270) {
-				LocationX = SensorValue[SonorDistanceX] + cos(BotAngle) * RADIUS;
-				LocationY = SensorValue[SonorDistanceY] + sin(BotAngle) * RADIUS;
-			} else if (90 < BotAngle < 180 || 270 < BotAngle < 360) {
-				LocationX = SensorValue[SonorDistanceX] + sin(BotAngle) * RADIUS;
-				LocationY = SensorValue[SonorDistanceY] + cos(BotAngle) * RADIUS;
-			} else if (BotAngle == 0) { // Trignometric special exceptions
-				LocationX = SensorValue[SonorDistanceX] - RADIUS;
-				LocationY = SensorValue[SonorDistanceY];
-			} else if (BotAngle == 90) {
-				LocationX = SensorValue[SonorDistanceX];
-				LocationY = SensorValue[SonorDistanceY] - RADIUS;
-			} else if (BotAngle == 180) {
-				LocationX = SensorValue[SonorDistanceX] + RADIUS;
-				LocationY = SensorValue[SonorDistanceY];
-			} else if (BotAngle == 270) {
-				LocationX = SensorValue[SonorDistanceX];
-				LocationY = SensorValue[SonorDistanceY] + RADIUS;
-			}
-		}
-		// Debug Autonomous
-		if (debugAutonomous) {
-			taskIndex = -1;
-			StrafeXMotorSet = vexRT[Ch1];
-			StrafeYMotorSet = vexRT[Ch2];
-			RotateMotorSet = vexRT[Ch4];
-			if (vexRT[Btn6U] == true) {
-				LiftMotorSet = -127;
-			} else if (vexRT[Btn6D] == true) {
-				LiftMotorSet = 127;
-			} else {
-				LiftMotorSet = 0;
-			}
-		}
+		trigModifications();
+
 		// Error Checking Array
 		if (ErrorChecking) {
 			LocationXArray[ArrayCount] = LocationX;
